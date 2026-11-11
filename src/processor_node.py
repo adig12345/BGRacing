@@ -4,6 +4,7 @@ Subscribes to /track/left and /track/right (nav_msgs/Path). The publisher
 resends the track periodically, so we process the first complete pair and
 ignore every later message.
 """
+import time
 from typing import Optional
 
 import numpy as np
@@ -11,7 +12,7 @@ import rclpy
 from nav_msgs.msg import Path as PathMsg
 from rclpy.node import Node
 
-from src.geometry import Track
+from src.geometry import Track, compute_centerline, path_length
 
 
 def path_to_array(path: PathMsg) -> np.ndarray:
@@ -29,6 +30,7 @@ class TrackProcessor(Node):
 
         self._left: Optional[np.ndarray] = None
         self._right: Optional[np.ndarray] = None
+        self._centerline: Optional[np.ndarray] = None
         self._done = False
 
         self.create_subscription(PathMsg, "track/left", self._on_left, 10)
@@ -59,7 +61,15 @@ class TrackProcessor(Node):
             f"Received track: left={len(track.left)} points, "
             f"right={len(track.right)} points"
         )
-        # Step 4 will compute the centerline here.
+
+        start = time.perf_counter()
+        self._centerline = compute_centerline(track)
+        length = path_length(self._centerline)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        self.get_logger().info(
+            f"Centerline: {len(self._centerline)} points, "
+            f"length={length:.1f} m (assumed meters), took {elapsed_ms:.2f} ms"
+        )
 
 
 def main(args=None) -> None:

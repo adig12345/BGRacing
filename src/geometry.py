@@ -41,3 +41,33 @@ def load_track(csv_path: Path) -> Track:
     right = clean_boundary(sides['right'])
 
     return Track(left=left, right=right)
+
+
+def compute_centerline(track: Track) -> np.ndarray:
+    """Return the (N, 2) midpoints between matching left and right points.
+
+    Assumes left[i] and right[i] are a matched pair (true for the Brands Hatch
+    CSV). Raises ValueError if the two sides have different lengths, because
+    pairing by index would then give a silently wrong centerline.
+    """
+    if track.left.shape != track.right.shape:
+        raise ValueError(
+            f"Cannot pair boundaries: left has {len(track.left)} points, "
+            f"right has {len(track.right)}"
+        )
+    return (track.left + track.right) / 2    
+
+
+def path_length(points: np.ndarray, closed: bool = True) -> float:
+    """Total length of the polyline through `points`, in the same units.
+
+    If `closed` is True, the segment from the last point back to the first is
+    included (the track is a loop).
+    """
+    # Vector from each point to the next one; roll(-1) makes row i hold point i+1.
+    next_points = np.roll(points, -1, axis=0)
+    segments = next_points - points
+    lengths = np.linalg.norm(segments, axis=1)
+    if not closed:
+        lengths = lengths[:-1]  # drop the wrap-around segment (last -> first)
+    return float(lengths.sum())
