@@ -24,7 +24,7 @@ The first build downloads the `ros:jazzy` base image (about 900 MB; the finished
 processor-1  | ... [track_processor]: Saved run summary to /output/run_summary.json
 ```
 
-The publisher keeps republishing the track forever (see [Design decisions](#design-decisions)), so stop the run with `Ctrl+C` and then run `docker compose down`.
+Both containers keep running after the result is written (the publisher stays alive, so the track remains available to late subscribers; see [Design decisions](#design-decisions)). Stop the run with `Ctrl+C` and then run `docker compose down`.
 
 | Output | What it is |
 |---|---|
@@ -98,9 +98,10 @@ Both containers use the **same image** (Ubuntu 24.04, ROS 2 Jazzy, Python 3.12, 
 
 | Block | File | Job |
 |---|---|---|
-| Publisher node | `src/publisher_node.py` | Loads the CSV once. Every `publish_period_s` seconds it publishes the left and right boundaries as two `nav_msgs/Path` messages |
+| Publisher node | `src/publisher_node.py` | Loads the CSV once and publishes the left and right boundaries once, as two `nav_msgs/Path` messages with transient-local QoS |
 | Processor node | `src/processor_node.py` | Collects both boundaries, then runs the pipeline **once** on the first complete pair. Logs the config at startup and the time of each stage |
 | Geometry | `src/geometry.py` | `load_track` (read the CSV, drop non-finite rows), `compute_centerline`, `build_corridor`, `apply_offsets`, `path_length`. No ROS imports |
+| QoS | `src/ros_qos.py` | The one QoS profile used by both nodes (transient local, reliable, depth 1) |
 | Optimizers | `src/optimizers.py` | A registry of functions `optimizer(corridor, params) -> alpha`. No ROS imports |
 | Plotting | `src/plotting.py` | Saves the PNG. No ROS imports |
 | Summary | `src/summary.py` | Builds and writes `run_summary.json`. No ROS imports |
@@ -123,7 +124,6 @@ All tunable values are ROS parameters in [`config/params.yaml`](config/params.ya
 | Node | Parameter | Value | Meaning |
 |---|---|---|---|
 | `track_publisher` | `csv_path` | `/app/data/BrandsHatchLayout.csv` | Input file inside the container |
-| | `publish_period_s` | `2.0` | Seconds between republishing the track |
 | | `frame_id` | `map` | Frame name in the message headers |
 | `track_processor` | `optimizer` | `min_distance` | `centerline` or `min_distance` |
 | | `alpha_limit` | `0.8` | Largest `abs(alpha)`, the safety margin |
@@ -158,7 +158,7 @@ Time per stage in one Docker run (from `run_summary.json`; this depends on the m
 ## Design decisions
 
 - **Two topics of `nav_msgs/Path`** (`/track/left`, `/track/right`). It is a standard message type with float64 positions and a header. The processor waits until it has both sides, in either order.
-- **Default QoS and periodic republishing.** With default QoS (volatile), a subscriber that starts late does not receive old messages, and ROS does not warn about it. So the publisher resends the track every `publish_period_s` seconds, and the processor uses the first complete pair and ignores the rest.
+- **Transient-local QoS, published once.** With the default QoS (volatile), a subscriber that starts late does not receive old messages, and ROS does not warn about it. Both nodes therefore use one shared profile (`src/ros_qos.py`): reliable, keep last 1, **transient local**. The publisher sends the track once, and the middleware hands the last message of each topic to any subscriber that connects later. The pipeline works whichever container starts first (tested: publisher first, processor first, and both together). The publisher and subscriber must both use transient local: a transient-local subscriber never connects to a volatile publisher, and ROS does not report an error. The processor still runs on the first complete pair only.
 - **Registry for optimizers.** A new algorithm is a new function, not a change in the processor.
 - **No defaults in code.** Every value comes from `params.yaml`, and an unknown optimizer name or a missing parameter stops the node at startup, not in the middle of a run.
 - **Squared length instead of length.** The true length has square roots. For evenly spaced points the squared-length objective gives nearly the same line and turns the problem into a quadratic one. The unit tests check the solver on a circular road, where the answer is known: the inner edge.
@@ -172,12 +172,12 @@ Time per stage in one Docker run (from `run_summary.json`; this depends on the m
 - The `min_distance` line is the **shortest** line. It is not a fast line: there is no vehicle model, so tight corners are not penalized.
 - The solver minimizes squared length, an approximation of the true length.
 - The processor runs the pipeline once, on the first complete pair of messages.
+- The stored track lives in the publisher process: if the publisher container is stopped, a processor that starts afterwards receives nothing.
 - Timing numbers depend on the machine.
 
 ## Future work
 
 - **Margin in meters.** Define the margin as a fixed distance (car half-width plus clearance) instead of a fraction, with a per-point limit of `1 - margin_m / half_width[i]`, so the clearance does not shrink on narrow sections.
-- **Transient-local (durable) QoS.** It is the proper fix for the late-joiner problem: the publisher sends the track once and keeps it for late subscribers. It was not used because this project keeps the default QoS.
 - **`min_curvature`:** minimize the squared curvature to get a smooth line with large radii.
 - **Speed profile and `min_time`:** limit the speed in each turn by tire grip (`v = sqrt(mu * g / curvature)`), add acceleration and braking limits with a forward and a backward pass, and choose the line with the lowest lap time.
 
@@ -188,7 +188,7 @@ pip install numpy matplotlib pytest
 python -m pytest
 ```
 
-15 tests cover loading, the centerline, path length, the optimizer registry, `min_distance` (including the circular road with a known answer), plotting and the summary. Run it from the repository root.
+17 tests cover loading (including errors for malformed CSV rows), the centerline, path length, the optimizer registry, `min_distance` (including the circular road with a known answer), plotting and the summary. Run it from the repository root.
 
 `python -m scripts.plot_track` draws the raw boundaries to `output/track_boundaries.png`.
 
@@ -205,6 +205,7 @@ python -m pytest
 ├── src/                      # nodes and pure algorithms
 │   ├── publisher_node.py
 │   ├── processor_node.py
+│   ├── ros_qos.py
 │   ├── geometry.py
 │   ├── optimizers.py
 │   ├── plotting.py
