@@ -17,6 +17,7 @@ from rclpy.parameter import Parameter
 from src.geometry import Corridor, Track, apply_offsets, build_corridor, path_length
 from src.optimizers import get_optimizer
 from src.plotting import save_result_plot
+from src.summary import build_summary, write_summary
 
 
 def path_to_array(path: PathMsg) -> np.ndarray:
@@ -89,11 +90,14 @@ class TrackProcessor(Node):
             f"right={len(track.right)} points"
         )
 
+        stage_times_ms: dict = {}  # filled after each stage, saved in the summary
+
         # Stage 1: centerline and sideways vectors.
         start = time.perf_counter()
         self._corridor = build_corridor(track)
         center_length = path_length(self._corridor.center)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
+        stage_times_ms["centerline"] = elapsed_ms
         self.get_logger().info(
             f"Centerline: {len(self._corridor.center)} points, "
             f"length={center_length:.1f} m (assumed meters), "
@@ -106,6 +110,7 @@ class TrackProcessor(Node):
         self._racing_line = apply_offsets(self._corridor, alpha)
         line_length = path_length(self._racing_line)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
+        stage_times_ms["optimizer"] = elapsed_ms
         saving = center_length - line_length
         self.get_logger().info(
             f"Racing line '{self._optimizer_name}': length={line_length:.1f} m, "
@@ -128,7 +133,23 @@ class TrackProcessor(Node):
             ),
         )
         elapsed_ms = (time.perf_counter() - start) * 1000.0
+        stage_times_ms["plot"] = elapsed_ms
         self.get_logger().info(f"Saved plot to {plot_path}, took {elapsed_ms:.0f} ms")
+
+        # Stage 4: save the run summary.
+        summary_path = self._output_dir / "run_summary.json"
+        summary = build_summary(
+            optimizer=self._optimizer_name,
+            optimizer_params=self._optimizer_params,
+            n_left=len(track.left),
+            n_right=len(track.right),
+            center_length_m=center_length,
+            line_length_m=line_length,
+            alpha=alpha,
+            stage_times_ms=stage_times_ms,
+        )
+        write_summary(summary, summary_path)
+        self.get_logger().info(f"Saved run summary to {summary_path}")
 
 
 def main(args=None) -> None:
