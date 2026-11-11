@@ -16,10 +16,6 @@ from src.geometry import Track
 
 def path_to_array(path: PathMsg) -> np.ndarray:
     """Convert a nav_msgs/Path into an (N, 2) float array of [x, y] rows."""
-    # TODO(human): build and return the array from path.poses.
-    #   Each element p of path.poses is a PoseStamped, so the x value is
-    #   p.pose.position.x. A list comprehension plus np.array(..., dtype=float)
-    #   is enough. Add .reshape(-1, 2) so an empty path gives shape (0, 2).
     return np.array(
         [[ p.pose.position.x, p.pose.position.y] for p in path.poses],
         dtype = float,

@@ -46,11 +46,6 @@ class TrackPublisher(Node):
         path = PathMsg()
         path.header.frame_id = self._frame_id
         path.header.stamp = self.get_clock().now().to_msg()
-        # TODO(human): loop over the rows of `points`. For each [x, y]:
-        #   1. create a PoseStamped()
-        #   2. set pose.position.x and pose.position.y (use float(...))
-        #   3. set pose.orientation.w = 1.0 (valid "no rotation")
-        #   4. append it to path.poses
         for x,y in points:
             pose = PoseStamped()
             pose.pose.position.x = float(x)
