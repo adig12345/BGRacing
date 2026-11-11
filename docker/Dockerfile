@@ -4,6 +4,7 @@ FROM ros:jazzy
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
     MPLBACKEND=Agg
 
 # Slow layer first, so Docker can cache it: Python libraries for the processor.

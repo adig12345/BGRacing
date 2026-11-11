@@ -10,7 +10,7 @@ services:
     <<: *ros-service
     command:
       - python3
-      - src/talker.py
+      - src/publisher_node.py
       - --ros-args
       - --params-file
       - /app/config/params.yaml
@@ -19,4 +19,4 @@ services:
     <<: *ros-service
     command:
       - python3
-      - src/listener.py
+      - src/processor_node.py
