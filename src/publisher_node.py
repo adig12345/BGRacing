@@ -9,6 +9,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path as PathMsg
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 
 from src.geometry import load_track
 
@@ -19,10 +20,11 @@ class TrackPublisher(Node):
     def __init__(self) -> None:
         super().__init__("track_publisher")  # must match params.yaml key
 
-        # Defaults are only a fallback. Real values live in config/params.yaml.
-        self.declare_parameter("csv_path", "data/BrandsHatchLayout.csv")
-        self.declare_parameter("publish_period_s", 1.0)
-        self.declare_parameter("frame_id", "map")
+        # No defaults in code: every value must come from config/params.yaml.
+        # An unset parameter raises ParameterUninitializedException on read.
+        self.declare_parameter("csv_path", Parameter.Type.STRING)
+        self.declare_parameter("publish_period_s", Parameter.Type.DOUBLE)
+        self.declare_parameter("frame_id", Parameter.Type.STRING)
         csv_path = self.get_parameter("csv_path").value
         period = self.get_parameter("publish_period_s").value
         self._frame_id = self.get_parameter("frame_id").value
