@@ -5,6 +5,7 @@ resends the track periodically, so we process the first complete pair and
 ignore every later message.
 """
 import time
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -15,6 +16,7 @@ from rclpy.parameter import Parameter
 
 from src.geometry import Corridor, Track, apply_offsets, build_corridor, path_length
 from src.optimizers import get_optimizer
+from src.plotting import save_result_plot
 
 
 def path_to_array(path: PathMsg) -> np.ndarray:
@@ -43,6 +45,8 @@ class TrackProcessor(Node):
         self.declare_parameter("alpha_limit", Parameter.Type.DOUBLE)
         self.declare_parameter("max_iterations", Parameter.Type.INTEGER)
         self.declare_parameter("tolerance", Parameter.Type.DOUBLE)
+        self.declare_parameter("output_dir", Parameter.Type.STRING)
+        self._output_dir = Path(self.get_parameter("output_dir").value)
         self._optimizer_name = self.get_parameter("optimizer").value
         self._optimizer_params = {
             "alpha_limit": self.get_parameter("alpha_limit").value,
@@ -51,7 +55,7 @@ class TrackProcessor(Node):
         }
         self.get_logger().info(
             f"Config: optimizer={self._optimizer_name}, "
-            f"params={self._optimizer_params}"
+            f"params={self._optimizer_params}, output_dir={self._output_dir}"
         )
         # Look the optimizer up now, so a typo fails at startup, not mid-run.
         self._optimizer = get_optimizer(self._optimizer_name)
@@ -109,6 +113,22 @@ class TrackProcessor(Node):
             f"alpha in [{alpha.min():.2f}, {alpha.max():.2f}], "
             f"took {elapsed_ms:.1f} ms"
         )
+
+        # Stage 3: save the plot.
+        start = time.perf_counter()
+        plot_path = self._output_dir / f"racing_line_{self._optimizer_name}.png"
+        save_result_plot(
+            track,
+            self._corridor,
+            self._racing_line,
+            plot_path,
+            title=(
+                f"Brands Hatch: '{self._optimizer_name}' racing line "
+                f"({line_length:.0f} m vs centerline {center_length:.0f} m)"
+            ),
+        )
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        self.get_logger().info(f"Saved plot to {plot_path}, took {elapsed_ms:.0f} ms")
 
 
 def main(args=None) -> None:

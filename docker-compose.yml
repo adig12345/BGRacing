@@ -23,3 +23,5 @@ services:
       - --ros-args
       - --params-file
       - /app/config/params.yaml
+    volumes:
+      - ./output:/output

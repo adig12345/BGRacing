@@ -8,6 +8,7 @@ track_publisher:
 track_processor:
   ros__parameters:
     optimizer: min_distance  # one of: centerline | min_distance
-    alpha_limit: 0.9         # max |offset| as a fraction of the half-width (safety margin)
+    alpha_limit: 0.8         # max |offset| as a fraction of the half-width (safety margin)
     max_iterations: 200      # max sweeps of the min_distance solver
     tolerance: 0.000001      # stop when no offset changes by more than this
+    output_dir: /output      # folder (inside the container) for PNG plots
