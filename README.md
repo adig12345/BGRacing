@@ -58,7 +58,7 @@ The file holds the left and right edges of the Brands Hatch Grand Prix circuit.
 
 ![Raw boundaries](docs/images/track_boundaries.png)
 
-*The raw boundaries. Each edge has a small gap at the start/finish line because the first point is not repeated.*
+*The raw boundaries. The CSV does not repeat the first point at the end, so the plot draws the closing segment (last point to first point) of each edge.*
 
 ## Task
 
