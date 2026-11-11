@@ -19,7 +19,7 @@ def load_track(csv_path: Path) -> Track:
     """Read the CSV (columns: x, y, side) and return clean boundaries.
     Rows with empty x or y become NaN while reading and are then removed.
     """
-    sides = {'left': [], 'right': []} 
+    sides = {'left': [], 'right': []}
 
     with open(csv_path) as f:
         for row in csv.DictReader(f):
@@ -55,7 +55,7 @@ def compute_centerline(track: Track) -> np.ndarray:
             f"Cannot pair boundaries: left has {len(track.left)} points, "
             f"right has {len(track.right)}"
         )
-    return (track.left + track.right) / 2    
+    return (track.left + track.right) / 2
 
 
 def path_length(points: np.ndarray, closed: bool = True) -> float:
@@ -71,3 +71,36 @@ def path_length(points: np.ndarray, closed: bool = True) -> float:
     if not closed:
         lengths = lengths[:-1]  # drop the wrap-around segment (last -> first)
     return float(lengths.sum())
+
+
+@dataclass(frozen=True)
+class Corridor:
+    """The drivable corridor: its middle line and its sideways half-vectors.
+
+    center[i]  : centerline point c_i, shape (N, 2).
+    lateral[i] : vector d_i from c_i to the left boundary, shape (N, 2).
+
+    A line is described by one offset alpha_i per point:
+        point_i = center[i] + alpha_i * lateral[i]
+    alpha = 0 is the centerline, +1 the left boundary, -1 the right boundary.
+    """
+
+    center: np.ndarray
+    lateral: np.ndarray
+
+
+def build_corridor(track: Track) -> Corridor:
+    """Build the corridor from a track (left[i] must pair with right[i])."""
+    center = compute_centerline(track)
+    # center = (left + right) / 2, so left - center = (left - right) / 2.
+    lateral = (track.left - track.right) / 2
+    return Corridor(center=center, lateral=lateral)
+
+
+def apply_offsets(corridor: Corridor, alpha: np.ndarray) -> np.ndarray:
+    """Return the (N, 2) points of the line described by the offsets `alpha`."""
+    if alpha.shape != (len(corridor.center),):
+        raise ValueError(
+            f"alpha must have shape ({len(corridor.center)},), got {alpha.shape}"
+        )
+    return corridor.center + alpha[:, np.newaxis] * corridor.lateral

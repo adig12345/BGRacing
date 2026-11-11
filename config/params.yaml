@@ -4,3 +4,10 @@ track_publisher:
     csv_path: /app/data/BrandsHatchLayout.csv  # path inside the container
     publish_period_s: 2.0  # seconds between republishing the track
     frame_id: map          # coordinate frame name in the message headers
+
+track_processor:
+  ros__parameters:
+    optimizer: min_distance  # one of: centerline | min_distance
+    alpha_limit: 0.9         # max |offset| as a fraction of the half-width (safety margin)
+    max_iterations: 200      # max sweeps of the min_distance solver
+    tolerance: 0.000001      # stop when no offset changes by more than this

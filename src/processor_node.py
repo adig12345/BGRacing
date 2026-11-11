@@ -11,8 +11,10 @@ import numpy as np
 import rclpy
 from nav_msgs.msg import Path as PathMsg
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 
-from src.geometry import Track, compute_centerline, path_length
+from src.geometry import Corridor, Track, apply_offsets, build_corridor, path_length
+from src.optimizers import get_optimizer
 
 
 def path_to_array(path: PathMsg) -> np.ndarray:
@@ -22,6 +24,7 @@ def path_to_array(path: PathMsg) -> np.ndarray:
         dtype = float,
     ).reshape(-1,2)
 
+
 class TrackProcessor(Node):
     """Collects the two boundaries, then runs the pipeline once."""
 
@@ -30,8 +33,28 @@ class TrackProcessor(Node):
 
         self._left: Optional[np.ndarray] = None
         self._right: Optional[np.ndarray] = None
-        self._centerline: Optional[np.ndarray] = None
+        self._corridor: Optional[Corridor] = None
+        self._racing_line: Optional[np.ndarray] = None
         self._done = False
+
+        # No defaults in code: every value must come from config/params.yaml.
+        # An unset parameter raises ParameterUninitializedException on read.
+        self.declare_parameter("optimizer", Parameter.Type.STRING)
+        self.declare_parameter("alpha_limit", Parameter.Type.DOUBLE)
+        self.declare_parameter("max_iterations", Parameter.Type.INTEGER)
+        self.declare_parameter("tolerance", Parameter.Type.DOUBLE)
+        self._optimizer_name = self.get_parameter("optimizer").value
+        self._optimizer_params = {
+            "alpha_limit": self.get_parameter("alpha_limit").value,
+            "max_iterations": self.get_parameter("max_iterations").value,
+            "tolerance": self.get_parameter("tolerance").value,
+        }
+        self.get_logger().info(
+            f"Config: optimizer={self._optimizer_name}, "
+            f"params={self._optimizer_params}"
+        )
+        # Look the optimizer up now, so a typo fails at startup, not mid-run.
+        self._optimizer = get_optimizer(self._optimizer_name)
 
         self.create_subscription(PathMsg, "track/left", self._on_left, 10)
         self.create_subscription(PathMsg, "track/right", self._on_right, 10)
@@ -62,13 +85,29 @@ class TrackProcessor(Node):
             f"right={len(track.right)} points"
         )
 
+        # Stage 1: centerline and sideways vectors.
         start = time.perf_counter()
-        self._centerline = compute_centerline(track)
-        length = path_length(self._centerline)
+        self._corridor = build_corridor(track)
+        center_length = path_length(self._corridor.center)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         self.get_logger().info(
-            f"Centerline: {len(self._centerline)} points, "
-            f"length={length:.1f} m (assumed meters), took {elapsed_ms:.2f} ms"
+            f"Centerline: {len(self._corridor.center)} points, "
+            f"length={center_length:.1f} m (assumed meters), "
+            f"took {elapsed_ms:.2f} ms"
+        )
+
+        # Stage 2: racing line from the chosen optimizer.
+        start = time.perf_counter()
+        alpha = self._optimizer(self._corridor, self._optimizer_params)
+        self._racing_line = apply_offsets(self._corridor, alpha)
+        line_length = path_length(self._racing_line)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        saving = center_length - line_length
+        self.get_logger().info(
+            f"Racing line '{self._optimizer_name}': length={line_length:.1f} m, "
+            f"{saving:.1f} m shorter than the centerline, "
+            f"alpha in [{alpha.min():.2f}, {alpha.max():.2f}], "
+            f"took {elapsed_ms:.1f} ms"
         )
 
 

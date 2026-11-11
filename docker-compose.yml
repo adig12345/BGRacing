@@ -20,3 +20,6 @@ services:
     command:
       - python3
       - src/processor_node.py
+      - --ros-args
+      - --params-file
+      - /app/config/params.yaml
