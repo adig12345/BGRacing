@@ -1,0 +1,4 @@
+# ROS2 parameters for all nodes. Top-level key = node name (must match exactly).
+talker:
+  ros__parameters:
+    publish_period_s: 0.5  # seconds between messages (code default is 1.0)
