@@ -4,6 +4,7 @@ Every optimizer has the signature  optimizer(corridor, params) -> alpha
 and returns one lateral offset per point (see geometry.Corridor for the
 convention: 0 = centerline, +1 = left boundary, -1 = right boundary).
 """
+
 from typing import Callable, Dict
 
 import numpy as np

@@ -1,4 +1,5 @@
 """Tests for src/summary.py. Run from the project root: python -m pytest"""
+
 import json
 from pathlib import Path
 

@@ -2,6 +2,7 @@
 
 Run from the project root:  python -m scripts.plot_track
 """
+
 from pathlib import Path
 
 import matplotlib
@@ -14,6 +15,9 @@ from src.geometry import load_track  # noqa: E402
 
 CSV_PATH = Path("data/BrandsHatchLayout.csv")
 OUTPUT_PATH = Path("output/track_boundaries.png")
+FIGURE_SIZE = (10, 10)  # inches; the track is roughly square
+LEFT_COLOR = "blue"
+RIGHT_COLOR = "red"
 
 
 def main() -> None:
@@ -23,32 +27,20 @@ def main() -> None:
     left = np.concatenate([track.left, track.left[:1]])
     right = np.concatenate([track.right, track.right[:1]])
 
-    fig, ax = plt.subplots(figsize = (10, 10)) # TODO - size in config
+    fig, ax = plt.subplots(figsize=FIGURE_SIZE)
 
-    ax.plot (
-        left[:, 0],
-        left[:, 1],
-        color = 'blue', # TODO - colors in config
-        label='Left boundary'
-    )
-    ax.plot (
-        right[:, 0],
-        right[:, 1],
-        color = 'red', # TODO - colors in config
-        label='Right boundary'
-    )
-    
+    ax.plot(left[:, 0], left[:, 1], color=LEFT_COLOR, label="Left boundary")
+    ax.plot(right[:, 0], right[:, 1], color=RIGHT_COLOR, label="Right boundary")
 
-    ax.set_aspect('equal')
-    ax.set_title('Brands Hatch Track Boundaries')
-    ax.set_xlabel('X (meters)')
-    ax.set_ylabel('Y (meters)')
+    ax.set_aspect("equal")
+    ax.set_title("Brands Hatch Track Boundaries")
+    ax.set_xlabel("X (meters)")
+    ax.set_ylabel("Y (meters)")
     ax.legend()
     ax.grid(True)
-    # TODO - make sure in readme to write that i assumed meters, and units arn't givern
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUTPUT_PATH, dpi=150, bbox_inches='tight')
+    fig.savefig(OUTPUT_PATH, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 

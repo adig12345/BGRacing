@@ -1,4 +1,5 @@
 """Plot helpers. Pure matplotlib, no ROS imports."""
+
 from pathlib import Path
 
 import matplotlib
@@ -44,23 +45,42 @@ def save_result_plot(
     # zorder = drawing order (higher is on top). The boundaries go on top of
     # the racing line so the line is visibly inside the road, never covering it.
     _draw(
-        ax, corridor.center, color=CENTERLINE, linewidth=1.2, linestyle="--",
-        label="Centerline", zorder=1,
+        ax,
+        corridor.center,
+        color=CENTERLINE,
+        linewidth=1.2,
+        linestyle="--",
+        label="Centerline",
+        zorder=1,
     )
     _draw(
-        ax, racing_line, color=RACING_LINE, linewidth=1.4, label="Racing line",
+        ax,
+        racing_line,
+        color=RACING_LINE,
+        linewidth=1.4,
+        label="Racing line",
         zorder=2,
     )
     _draw(
-        ax, track.left, color=BOUNDARY, linewidth=1.0, label="Track boundaries",
+        ax,
+        track.left,
+        color=BOUNDARY,
+        linewidth=1.0,
+        label="Track boundaries",
         zorder=3,
     )
     _draw(ax, track.right, color=BOUNDARY, linewidth=1.0, zorder=3)  # no label
 
     start = corridor.center[0]
     ax.plot(
-        start[0], start[1], "o", color=INK, markersize=8,
-        markeredgecolor=SURFACE, markeredgewidth=2, zorder=5,
+        start[0],
+        start[1],
+        "o",
+        color=INK,
+        markersize=8,
+        markeredgecolor=SURFACE,
+        markeredgewidth=2,
+        zorder=5,
         label="Start / finish (point 0)",
     )
 

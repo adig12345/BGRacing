@@ -1,4 +1,5 @@
 """Run summary: a plain dict describing one run, saved as JSON. No ROS imports."""
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path

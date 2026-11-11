@@ -1,17 +1,26 @@
 """Tests for src/optimizers.py. Run from the project root: python -m pytest"""
+
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from src.geometry import Corridor, apply_offsets, build_corridor, load_track, path_length
+from src.geometry import (
+    Corridor,
+    apply_offsets,
+    build_corridor,
+    load_track,
+    path_length,
+)
 from src.optimizers import OPTIMIZERS, get_optimizer, register
 
 REAL_CSV = Path(__file__).parent.parent / "data" / "BrandsHatchLayout.csv"
 PARAMS = {"alpha_limit": 0.9, "max_iterations": 200, "tolerance": 1e-9}
 
 
-def make_ring_corridor(n: int = 36, radius: float = 10.0, half_width: float = 2.0) -> Corridor:
+def make_ring_corridor(
+    n: int = 36, radius: float = 10.0, half_width: float = 2.0
+) -> Corridor:
     """A circular road: center on a circle, lateral vectors pointing outward."""
     angles = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
     outward = np.stack([np.cos(angles), np.sin(angles)], axis=1)  # unit vectors

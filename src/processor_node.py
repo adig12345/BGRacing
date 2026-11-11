@@ -4,6 +4,7 @@ Subscribes to /track/left and /track/right (nav_msgs/Path). The publisher
 resends the track periodically, so we process the first complete pair and
 ignore every later message.
 """
+
 import time
 from pathlib import Path
 from typing import Optional
@@ -23,9 +24,9 @@ from src.summary import build_summary, write_summary
 def path_to_array(path: PathMsg) -> np.ndarray:
     """Convert a nav_msgs/Path into an (N, 2) float array of [x, y] rows."""
     return np.array(
-        [[ p.pose.position.x, p.pose.position.y] for p in path.poses],
-        dtype = float,
-    ).reshape(-1,2)
+        [[p.pose.position.x, p.pose.position.y] for p in path.poses],
+        dtype=float,
+    ).reshape(-1, 2)
 
 
 class TrackProcessor(Node):
@@ -63,7 +64,9 @@ class TrackProcessor(Node):
 
         self.create_subscription(PathMsg, "track/left", self._on_left, 10)
         self.create_subscription(PathMsg, "track/right", self._on_right, 10)
-        self.get_logger().info("Processor started, waiting for /track/left and /track/right")
+        self.get_logger().info(
+            "Processor started, waiting for /track/left and /track/right"
+        )
 
     def _on_left(self, msg: PathMsg) -> None:
         """Store the left boundary, then check whether we can process."""

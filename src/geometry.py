@@ -1,7 +1,9 @@
 """Pure geometry helpers for the track. No ROS imports allowed in this file."""
+
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 
@@ -11,34 +13,44 @@ class Track:
     """Left and right track boundaries.
     Each is an (N, 2) float array: one row per point, columns are [x, y].
     """
+
     left: np.ndarray
     right: np.ndarray
 
 
-def load_track(csv_path: Path) -> Track:
+def load_track(csv_path: Union[str, Path]) -> Track:
     """Read the CSV (columns: x, y, side) and return clean boundaries.
+
     Rows with empty x or y become NaN while reading and are then removed.
+    Raises ValueError (naming the line) for an unknown side or a value that
+    is not a number, so a broken file is never silently half-loaded.
     """
-    sides = {'left': [], 'right': []}
+    sides = {"left": [], "right": []}
 
-    with open(csv_path) as f:
-        for row in csv.DictReader(f):
-            side = (row.get('side') or '').strip().lower()
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            side = (row.get("side") or "").strip().lower()
+            if side not in sides:
+                raise ValueError(
+                    f"{csv_path}, line {reader.line_num}: unknown side {row.get('side')!r}"
+                )
             try:
-                x = float(row['x']) if row['x'] else float('nan')
-                y = float(row['y']) if row['y'] else float('nan')
-            except (TypeError, ValueError):
-                continue # TODO: logs
+                x = float(row["x"]) if row["x"] else float("nan")
+                y = float(row["y"]) if row["y"] else float("nan")
+            except ValueError as error:
+                raise ValueError(
+                    f"{csv_path}, line {reader.line_num}: x and y must be numbers"
+                ) from error
+            sides[side].append([x, y])
 
-            if side in sides:
-                sides[side].append([x,y])
-
-    def clean_boundary(points):
+    def clean_boundary(points: list) -> np.ndarray:
+        """Return an (N, 2) float array without rows that contain NaN or inf."""
         a = np.array(points, dtype=float).reshape(-1, 2)
         return a[np.isfinite(a).all(axis=1)]
 
-    left = clean_boundary(sides['left'])
-    right = clean_boundary(sides['right'])
+    left = clean_boundary(sides["left"])
+    right = clean_boundary(sides["right"])
 
     return Track(left=left, right=right)
 

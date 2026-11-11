@@ -4,6 +4,7 @@ Topics: /track/left and /track/right. The track is republished every
 `publish_period_s` seconds so a late-starting subscriber still gets it
 (we use default QoS, which does not keep old messages).
 """
+
 import numpy as np
 import rclpy
 from geometry_msgs.msg import PoseStamped
@@ -48,7 +49,7 @@ class TrackPublisher(Node):
         path = PathMsg()
         path.header.frame_id = self._frame_id
         path.header.stamp = self.get_clock().now().to_msg()
-        for x,y in points:
+        for x, y in points:
             pose = PoseStamped()
             pose.pose.position.x = float(x)
             pose.pose.position.y = float(y)
