@@ -1,8 +1,8 @@
 """Processor node: receives both track boundaries and processes them once.
 
-Subscribes to /track/left and /track/right (nav_msgs/Path). The publisher
-resends the track periodically, so we process the first complete pair and
-ignore every later message.
+Subscribes to /track/left and /track/right (nav_msgs/Path) with transient-local
+QoS (see ros_qos.py), so it also receives the track if it starts after the
+publisher. The pipeline runs once, on the first complete pair of messages.
 """
 
 import time
@@ -18,6 +18,7 @@ from rclpy.parameter import Parameter
 from src.geometry import Corridor, Track, apply_offsets, build_corridor, path_length
 from src.optimizers import get_optimizer
 from src.plotting import save_result_plot
+from src.ros_qos import TRACK_QOS
 from src.summary import build_summary, write_summary
 
 
@@ -62,8 +63,8 @@ class TrackProcessor(Node):
         # Look the optimizer up now, so a typo fails at startup, not mid-run.
         self._optimizer = get_optimizer(self._optimizer_name)
 
-        self.create_subscription(PathMsg, "track/left", self._on_left, 10)
-        self.create_subscription(PathMsg, "track/right", self._on_right, 10)
+        self.create_subscription(PathMsg, "track/left", self._on_left, TRACK_QOS)
+        self.create_subscription(PathMsg, "track/right", self._on_right, TRACK_QOS)
         self.get_logger().info(
             "Processor started, waiting for /track/left and /track/right"
         )

@@ -2,7 +2,6 @@
 track_publisher:
   ros__parameters:
     csv_path: /app/data/BrandsHatchLayout.csv  # path inside the container
-    publish_period_s: 2.0  # seconds between republishing the track
     frame_id: map          # coordinate frame name in the message headers
 
 track_processor:

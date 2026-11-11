@@ -1,8 +1,8 @@
-"""Publisher node: reads the track CSV and republishes it as two nav_msgs/Path.
+"""Publisher node: reads the track CSV and publishes it as two nav_msgs/Path.
 
-Topics: /track/left and /track/right. The track is republished every
-`publish_period_s` seconds so a late-starting subscriber still gets it
-(we use default QoS, which does not keep old messages).
+Topics: /track/left and /track/right, published once. The QoS is transient
+local (see ros_qos.py), so a subscriber that starts later still receives the
+last message of each topic.
 """
 
 import numpy as np
@@ -13,10 +13,11 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 
 from src.geometry import load_track
+from src.ros_qos import TRACK_QOS
 
 
 class TrackPublisher(Node):
-    """Loads the track once and publishes both boundaries on a timer."""
+    """Loads the track and publishes both boundaries once."""
 
     def __init__(self) -> None:
         super().__init__("track_publisher")  # must match params.yaml key
@@ -24,14 +25,11 @@ class TrackPublisher(Node):
         # No defaults in code: every value must come from config/params.yaml.
         # An unset parameter raises ParameterUninitializedException on read.
         self.declare_parameter("csv_path", Parameter.Type.STRING)
-        self.declare_parameter("publish_period_s", Parameter.Type.DOUBLE)
         self.declare_parameter("frame_id", Parameter.Type.STRING)
         csv_path = self.get_parameter("csv_path").value
-        period = self.get_parameter("publish_period_s").value
         self._frame_id = self.get_parameter("frame_id").value
         self.get_logger().info(
-            f"Config: csv_path={csv_path}, publish_period_s={period}, "
-            f"frame_id={self._frame_id}"
+            f"Config: csv_path={csv_path}, frame_id={self._frame_id}"
         )
 
         self._track = load_track(csv_path)
@@ -40,9 +38,9 @@ class TrackPublisher(Node):
             f"right={len(self._track.right)} points"
         )
 
-        self._left_pub = self.create_publisher(PathMsg, "track/left", 10)
-        self._right_pub = self.create_publisher(PathMsg, "track/right", 10)
-        self.create_timer(period, self._on_timer)
+        self._left_pub = self.create_publisher(PathMsg, "track/left", TRACK_QOS)
+        self._right_pub = self.create_publisher(PathMsg, "track/right", TRACK_QOS)
+        self._publish_track()
 
     def _to_path(self, points: np.ndarray) -> PathMsg:
         """Convert an (N, 2) array of [x, y] rows into a nav_msgs/Path."""
@@ -57,13 +55,13 @@ class TrackPublisher(Node):
             path.poses.append(pose)
         return path
 
-    def _on_timer(self) -> None:
-        """Publish the whole track (both sides) once."""
+    def _publish_track(self) -> None:
+        """Publish the whole track (both sides) once; ROS keeps it for late joiners."""
         self._left_pub.publish(self._to_path(self._track.left))
         self._right_pub.publish(self._to_path(self._track.right))
         self.get_logger().info(
-            f"Published track: left={len(self._track.left)}, "
-            f"right={len(self._track.right)} points"
+            f"Published track once: left={len(self._track.left)}, "
+            f"right={len(self._track.right)} points (transient local)"
         )
 
 
