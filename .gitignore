@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# ROS2 build artifacts (if we ever build outside Docker)
+build/
+install/
+log/
+
+# Generated outputs (reproduced by `docker compose up`)
+output/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json
