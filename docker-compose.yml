@@ -1,0 +1,22 @@
+# Two containers, one shared image. They differ only by `command:`.
+x-ros-service: &ros-service
+  image: bgracing:latest
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+
+services:
+  publisher:
+    <<: *ros-service
+    command:
+      - python3
+      - src/talker.py
+      - --ros-args
+      - --params-file
+      - /app/config/params.yaml
+
+  processor:
+    <<: *ros-service
+    command:
+      - python3
+      - src/listener.py

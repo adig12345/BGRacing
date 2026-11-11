@@ -1,0 +1,13 @@
+# Not needed inside the image; keeps the build context small and builds fast.
+.git
+.gitignore
+.vscode
+.idea
+.claude
+output/
+**/__pycache__
+**/*.pyc
+*.md
+*.MD
+*.pdf
+scripts/
