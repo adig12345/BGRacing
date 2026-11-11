@@ -1,13 +1,17 @@
-# Two containers, one shared image. They differ only by `command:`.
+# Two containers, one shared image. They differ only by `command:` and their log folder.
 x-ros-service: &ros-service
   image: bgracing:latest
   build:
     context: .
     dockerfile: docker/Dockerfile
+  volumes:
+    - ./output:/output  # results and logs appear in ./output on the host
 
 services:
   publisher:
     <<: *ros-service
+    environment:
+      ROS_LOG_DIR: /output/logs/publisher
     command:
       - python3
       - src/publisher_node.py
@@ -17,11 +21,11 @@ services:
 
   processor:
     <<: *ros-service
+    environment:
+      ROS_LOG_DIR: /output/logs/processor
     command:
       - python3
       - src/processor_node.py
       - --ros-args
       - --params-file
       - /app/config/params.yaml
-    volumes:
-      - ./output:/output
