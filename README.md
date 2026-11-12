@@ -24,7 +24,7 @@ The first build downloads the `ros:jazzy` base image (about 900 MB; the finished
 processor-1  | ... [track_processor]: Saved run summary to /output/run_summary.json
 ```
 
-Both containers keep running after the result is written (the publisher stays alive, so the track remains available to late subscribers; see [Design decisions](#design-decisions)). Stop the run with `Ctrl+C` and then run `docker compose down`.
+Both containers keep running after the result is written (the publisher stays alive, so the track remains available to late subscribers; see [Design decisions](#design-decisions)). Stop the run with `Ctrl+C` and then run `docker compose down`. To avoid keeping a terminal busy, you can start it in the background instead: `docker compose up -d --build`, read the output with `docker compose logs`, and stop it with `docker compose down`.
 
 | Output | What it is |
 |---|---|
