@@ -13,8 +13,8 @@ A **publisher** container reads the Brands Hatch track boundaries from a CSV fil
 Requirements: Docker with Compose v2. Nothing else is needed.
 
 ```bash
-git clone <this repository>
-cd <repository folder>
+git clone https://github.com/adig12345/BGRacing.git
+cd BGRacing
 docker compose up --build
 ```
 
