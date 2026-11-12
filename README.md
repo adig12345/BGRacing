@@ -49,18 +49,18 @@ The file holds the left and right edges of the Brands Hatch Grand Prix circuit.
 | Usable points | **156 per side**, 312 in total |
 | x range | −300.2 to 548.6 (849 wide) |
 | y range | −898.9 to 74.8 (974 high) |
-| Units | Not stated in the file. **Assumed meters**: the centerline is about 3.9 km long, which fits the real circuit |
+| Units | Not stated in the file. **Assumed meters**: the centerline is about 3.9 km long, which fits the Brands Hatch Grand Prix circuit (about 3.9 km according to [Wikipedia](https://en.wikipedia.org/wiki/Brands_Hatch)) |
 | Spacing between neighbouring points | mean 25.7 m on the left edge and 24.5 m on the right edge; range 11.8 to 37.4 m (irregular) |
 | Loop | Closed. The last point is **not** repeated at the end; the gap from the last point back to the first is 30.5 m (left) and 29.5 m (right), an ordinary step |
 | Pairing | Left point `i` and right point `i` are across from each other. For all 156 left points, the nearest right point has the same index |
 | Road width | min 22.8 m, mean 27.6 m, max 35.7 m |
-| Boundary lengths | left 4010.6 m, right 3818.5 m (the left edge is mostly the outside of the turns) |
+| Boundary lengths | left 4010.6 m, right 3818.5 m. The points run clockwise, like the real circuit, so overall the left edge is the longer, outer one |
 
 ![Raw boundaries](docs/images/track_boundaries.png)
 
 *The raw boundaries. The CSV does not repeat the first point at the end, so the plot draws the closing segment (last point to first point) of each edge.*
 
-## Task
+## Chosen Task
 
 1. Compute the **centerline**: the midpoint of each left/right pair. Length: **3912.8 m**.
 2. Compute a **racing line**: the centerline pushed sideways by an offset `alpha` per point.
@@ -71,26 +71,7 @@ The file holds the left and right edges of the Brands Hatch Grand Prix circuit.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    CSV[("data/BrandsHatchLayout.csv")]
-    subgraph pub["container: publisher"]
-        P["track_publisher node"]
-    end
-    subgraph proc["container: processor"]
-        R["track_processor node"]
-        R --> G["geometry: corridor"]
-        G --> O["optimizers: registry"]
-        O --> PL["plotting"]
-        O --> S["summary"]
-    end
-    OUT[("./output (bind mount)")]
-    CSV --> P
-    P -- "/track/left (nav_msgs/Path)" --> R
-    P -- "/track/right (nav_msgs/Path)" --> R
-    PL --> OUT
-    S --> OUT
-```
+Data flows from `data/BrandsHatchLayout.csv` through the `track_publisher` node, over the topics `/track/left` and `/track/right` (`nav_msgs/Path`), to the `track_processor` node, which writes its results to `./output`.
 
 Both containers use the **same image** (Ubuntu 24.04, ROS 2 Jazzy, Python 3.12, built from `docker/Dockerfile`). `docker-compose.yml` starts it twice with a different command, so they are two services on one Compose network, and ROS 2 discovers the peer automatically (DDS) with no addresses in the code.
 
@@ -131,6 +112,8 @@ All tunable values are ROS parameters in [`config/params.yaml`](config/params.ya
 | | `tolerance` | `0.000001` | The solver stops when no `alpha` changes by more than this |
 | | `output_dir` | `/output` | Where results are written (mounted to `./output`) |
 
+To compare optimizers, set `optimizer: centerline` or `optimizer: min_distance` and run `docker compose up --build` again. The PNG name contains the optimizer, so the results do not overwrite each other.
+
 ### The safety margin
 
 `alpha_limit: 0.8` means the line may use 80% of the half-width of the road at each point. The margin to each edge is therefore **20% of the local half-width**: about 2.3 m where the road is narrowest (22.8 m wide) and about 3.6 m where it is widest (35.7 m). A limit of `1.0` would let the line touch the boundary, which a car with a width cannot do. The margin is a fraction, so it varies with the road width (see [Future work](#future-work)).
@@ -161,8 +144,7 @@ Time per stage in one Docker run (from `run_summary.json`; this depends on the m
 - **Transient-local QoS, published once.** With the default QoS (volatile), a subscriber that starts late does not receive old messages, and ROS does not warn about it. Both nodes therefore use one shared profile (`src/ros_qos.py`): reliable, keep last 1, **transient local**. The publisher sends the track once, and the middleware hands the last message of each topic to any subscriber that connects later. The pipeline works whichever container starts first (tested: publisher first, processor first, and both together). The publisher and subscriber must both use transient local: a transient-local subscriber never connects to a volatile publisher, and ROS does not report an error. The processor still runs on the first complete pair only.
 - **Registry for optimizers.** A new algorithm is a new function, not a change in the processor.
 - **No defaults in code.** Every value comes from `params.yaml`, and an unknown optimizer name or a missing parameter stops the node at startup, not in the middle of a run.
-- **Squared length instead of length.** The true length has square roots. For evenly spaced points the squared-length objective gives nearly the same line and turns the problem into a quadratic one. The unit tests check the solver on a circular road, where the answer is known: the inner edge.
-- **Plain Python scripts, not a colcon package.** It keeps the project small. The nodes are started with `python3 src/<node>.py --ros-args --params-file ...`.
+- **Squared length instead of length.** The true length has square roots. For evenly spaced points the squared-length objective gives nearly the same line and turns the problem into a quadratic one. On this track the difference is negligible: refining the squared-length line directly on the true length changes it from 3713.89 m to 3713.88 m. The unit tests check the solver on a circular road, where the answer is known: the inner edge.
 
 ## Assumptions and limitations
 
@@ -173,13 +155,14 @@ Time per stage in one Docker run (from `run_summary.json`; this depends on the m
 - The solver minimizes squared length, an approximation of the true length.
 - The processor runs the pipeline once, on the first complete pair of messages.
 - The stored track lives in the publisher process: if the publisher container is stopped, a processor that starts afterwards receives nothing.
+- The nodes are plain Python scripts, not a colcon package, to keep the project small. They are started with `python3 src/<node>.py --ros-args --params-file ...`, so there is no `ros2 run`, no launch file and no `package.xml`, and the imports rely on `PYTHONPATH=/app` set in the Dockerfile.
 - Timing numbers depend on the machine.
 
 ## Future work
 
-- **Margin in meters.** Define the margin as a fixed distance (car half-width plus clearance) instead of a fraction, with a per-point limit of `1 - margin_m / half_width[i]`, so the clearance does not shrink on narrow sections.
-- **`min_curvature`:** minimize the squared curvature to get a smooth line with large radii.
-- **Speed profile and `min_time`:** limit the speed in each turn by tire grip (`v = sqrt(mu * g / curvature)`), add acceleration and braking limits with a forward and a backward pass, and choose the line with the lowest lap time.
+- **Margin in meters:** replace the `alpha_limit` fraction with the car width plus a clearance, so the clearance is the same on narrow and wide sections.
+- **`min_curvature`:** a smoother line that takes the turns with larger radii.
+- **`min_time`:** a speed profile limited by tire grip and by acceleration and braking, and the line with the lowest lap time.
 
 ## Tests
 
